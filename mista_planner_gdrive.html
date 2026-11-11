@@ -2,34 +2,164 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>MISTA ERP Planner & Meetings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MISTA ERP Planner</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://apis.google.com/js/api.js"></script>
   <script src="https://accounts.google.com/gsi/client"></script>
   <style>
     body { background-color: #0b1120; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    input, select, textarea { font-size: 16px !important; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
   </style>
 </head>
-<body>
-  <div id="root"></div>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur px-6 py-3 flex items-center justify-between sticky top-0 z-20">
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-3">
+        <div class="w-2.5 h-7 bg-amber-500 rounded-sm"></div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white leading-tight">MISTA <span class="text-slate-400 font-normal">| Производственный Планер</span></h1>
+          <div class="text-xs text-slate-500">Система оперативных совещаний и Канбан-учета</div>
+        </div>
+      </div>
+      <nav class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+        <button id="tabKanbanBtn" onclick="switchTab('kanban')" class="px-3 py-1.5 rounded-md font-medium bg-blue-600 text-white transition">Канбан-доска</button>
+        <button id="tabMeetingsBtn" onclick="switchTab('meetings')" class="px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-white transition">Совещания</button>
+      </nav>
+    </div>
 
+    <div class="flex items-center gap-3">
+      <button id="syncBtn" onclick="handleConnect()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 transition">
+        <span id="syncDot" class="w-2 h-2 rounded-full bg-white"></span>
+        <span id="syncText">Подключить Диск</span>
+      </button>
+      <button onclick="toggleConfigModal(true)" class="p-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-400" title="Настройки Client ID">⚙</button>
+    </div>
+  </header>
+
+  <div class="px-6 py-3 border-b border-slate-800 bg-slate-900/40 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-slate-400">Отдел:</span>
+      <select id="deptFilter" onchange="renderApp()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-blue-500">
+        <option value="all">Все отделы</option>
+      </select>
+    </div>
+    <div>
+      <button id="addBtn" onclick="openCreateModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+        + Добавить задачу
+      </button>
+    </div>
+  </div>
+
+  <main class="p-6 flex-1 overflow-auto">
+    <div id="kanbanView" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col min-h-[500px]">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-sm font-semibold text-slate-300">К выполнению</span>
+          <span id="countTodo" class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="colTodo" class="space-y-3 flex-1 overflow-y-auto"></div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col min-h-[500px]">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-sm font-semibold text-amber-400">В работе</span>
+          <span id="countProgress" class="text-xs bg-amber-950/60 border border-amber-800 text-amber-400 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="colProgress" class="space-y-3 flex-1 overflow-y-auto"></div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col min-h-[500px]">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-sm font-semibold text-emerald-400">Готово</span>
+          <span id="countDone" class="text-xs bg-emerald-950/60 border border-emerald-800 text-emerald-400 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="colDone" class="space-y-3 flex-1 overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <div id="meetingsView" class="max-w-4xl mx-auto space-y-4 hidden"></div>
+  </main>
+
+  <div id="taskModal" class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 text-left">
+      <h3 class="text-base font-bold text-white mb-4">Новая задача</h3>
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Содержание задачи</label>
+          <input type="text" id="taskTitle" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-blue-500" required>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Отдел</label>
+            <select id="taskDept" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Приоритет</label>
+            <select id="taskPriority" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none">
+              <option value="medium">Средний</option>
+              <option value="high">Высокий</option>
+              <option value="urgent">Срочно</option>
+              <option value="low">Низкий</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Ответственный</label>
+          <input type="text" id="taskAssignee" placeholder="Имя" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none">
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button onclick="toggleTaskModal(false)" class="px-4 py-2 rounded-lg text-xs text-slate-400 hover:bg-slate-800">Отмена</button>
+        <button onclick="saveTask()" class="px-4 py-2 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium">Создать</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="meetingModal" class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 text-left">
+      <h3 class="text-base font-bold text-white mb-4">Протокол оперативного совещания</h3>
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Повестка / Тема</label>
+          <input type="text" id="meetingTitle" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-blue-500" required>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Дата</label>
+          <input type="date" id="meetingDate" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Принятые решения и поручения</label>
+          <textarea id="meetingNotes" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-blue-500"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button onclick="toggleMeetingModal(false)" class="px-4 py-2 rounded-lg text-xs text-slate-400 hover:bg-slate-800">Отмена</button>
+        <button onclick="saveMeeting()" class="px-4 py-2 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="configModal" class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 text-left">
+      <h3 class="text-base font-bold text-white mb-2">Google Drive Client ID</h3>
+      <p class="text-xs text-slate-400 mb-4">OAuth 2.0 Client ID из Google Cloud Console:</p>
+      <input type="text" id="clientIdInput" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 outline-none font-mono mb-4">
+      <div class="flex justify-end gap-3">
+        <button onclick="toggleConfigModal(false)" class="px-4 py-2 rounded-lg text-xs text-slate-400 hover:bg-slate-800">Отмена</button>
+        <button onclick="saveClientId()" class="px-4 py-2 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
     const CLIENT_ID_KEY = 'mista_gdrive_client_id';
     const FILE_NAME = 'mista_planner_sync.json';
     const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
     const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-    const INITIAL_DEPARTMENTS = [
+    const DEFAULT_DEPARTMENTS = [
       { id: 'prod', name: 'Производство' },
       { id: 'mech', name: 'Мехобработка' },
       { id: 'assembly', name: 'Сборка / Монтаж' },
@@ -37,505 +167,284 @@
       { id: 'design', name: 'Конструкторский отдел' }
     ];
 
-    const INITIAL_DATA = {
-      departments: INITIAL_DEPARTMENTS,
+    let appData = {
+      departments: DEFAULT_DEPARTMENTS,
       meetings: [
-        { id: 'm1', date: new Date().toISOString().split('T')[0], title: 'Оперативное производственное совещание', notes: 'Контроль графиков сборки и закрытие дефицитов по комплектующим.' }
+        { id: 'm1', date: new Date().toISOString().split('T')[0], title: 'Оперативное совещание производства', notes: 'Контроль графиков сборки и закрытие дефицитов по комплектующим.' }
       ],
       tasks: [
-        { id: 't1', deptId: 'prod', title: 'Контроль сборки узлов шасси', status: 'in_progress', priority: 'high', assignee: 'Марцин', deadline: '' },
-        { id: 't2', deptId: 'procurement', title: 'Заказ металлопроката и крепежа', status: 'todo', priority: 'urgent', assignee: 'Олексий', deadline: '' },
-        { id: 't3', deptId: 'assembly', title: 'Тестирование электрожгутов', status: 'done', priority: 'medium', assignee: 'Сергей', deadline: '' }
+        { id: 't1', deptId: 'prod', title: 'Контроль сборки узлов шасси UGV', status: 'in_progress', priority: 'high', assignee: 'Марцин' },
+        { id: 't2', deptId: 'procurement', title: 'Заказ металлопроката и крепежа', status: 'todo', priority: 'urgent', assignee: 'Олексий' },
+        { id: 't3', deptId: 'assembly', title: 'Тестирование жгутов и силовой шины', status: 'done', priority: 'medium', assignee: 'Сергей' }
       ]
     };
 
-    function App() {
-      const [activeTab, setActiveTab] = useState('kanban');
-      const [data, setData] = useState(() => {
-        const local = localStorage.getItem('mista_planner_data');
-        return local ? JSON.parse(local) : INITIAL_DATA;
+    let activeTab = 'kanban';
+    let tokenClient = null;
+    let driveFileId = null;
+    let syncStatus = 'offline';
+
+    function init() {
+      const saved = localStorage.getItem('mista_planner_data');
+      if (saved) {
+        try { appData = JSON.parse(saved); } catch(e) {}
+      }
+      const savedClientId = localStorage.getItem(CLIENT_ID_KEY) || '663742247956-dt56qqvgg0re4nki0ficg8ifj6qr4i1e.apps.googleusercontent.com';
+      document.getElementById('clientIdInput').value = savedClientId;
+      document.getElementById('meetingDate').value = new Date().toISOString().split('T')[0];
+      
+      initDepartmentSelectors();
+      renderApp();
+      setupGoogleAuth(savedClientId);
+    }
+
+    function initDepartmentSelectors() {
+      const filter = document.getElementById('deptFilter');
+      const taskDept = document.getElementById('taskDept');
+      filter.innerHTML = '<option value="all">Все отделы</option>';
+      taskDept.innerHTML = '';
+      appData.departments.forEach(d => {
+        filter.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+        taskDept.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+      });
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      const kBtn = document.getElementById('tabKanbanBtn');
+      const mBtn = document.getElementById('tabMeetingsBtn');
+      const kView = document.getElementById('kanbanView');
+      const mView = document.getElementById('meetingsView');
+      const addBtn = document.getElementById('addBtn');
+
+      if (tab === 'kanban') {
+        kBtn.className = 'px-3 py-1.5 rounded-md font-medium bg-blue-600 text-white transition';
+        mBtn.className = 'px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-white transition';
+        kView.classList.remove('hidden');
+        mView.classList.add('hidden');
+        addBtn.innerText = '+ Добавить задачу';
+      } else {
+        mBtn.className = 'px-3 py-1.5 rounded-md font-medium bg-blue-600 text-white transition';
+        kBtn.className = 'px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-white transition';
+        mView.classList.remove('hidden');
+        kView.classList.add('hidden');
+        addBtn.innerText = '+ Протокол совещания';
+      }
+      renderApp();
+    }
+
+    function renderApp() {
+      localStorage.setItem('mista_planner_data', JSON.stringify(appData));
+      
+      const filterDept = document.getElementById('deptFilter').value;
+      const filteredTasks = filterDept === 'all' ? appData.tasks : appData.tasks.filter(t => t.deptId === filterDept);
+
+      const colTodo = document.getElementById('colTodo');
+      const colProg = document.getElementById('colProgress');
+      const colDone = document.getElementById('colDone');
+
+      colTodo.innerHTML = '';
+      colProg.innerHTML = '';
+      colDone.innerHTML = '';
+
+      let cTodo = 0, cProg = 0, cDone = 0;
+
+      filteredTasks.forEach(task => {
+        const deptName = appData.departments.find(d => d.id === task.deptId)?.name || 'Общий';
+        const card = document.createElement('div');
+        
+        let borderClass = 'border-l-blue-500 bg-slate-950/60';
+        if (task.priority === 'urgent') borderClass = 'border-l-rose-500 bg-rose-950/20';
+        if (task.priority === 'high') borderClass = 'border-l-amber-500 bg-amber-950/20';
+
+        card.className = `p-3.5 rounded-lg border border-slate-800/80 border-l-4 ${borderClass} flex flex-col gap-2.5`;
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <span class="text-xs font-medium text-slate-100 leading-snug">${task.title}</span>
+            <button onclick="deleteTask('${task.id}')" class="text-slate-600 hover:text-rose-400 text-xs px-1">✕</button>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/50">
+            <span class="bg-slate-800/80 px-2 py-0.5 rounded text-slate-300">${deptName}</span>
+            ${task.assignee ? `<span class="text-slate-300">👤 ${task.assignee}</span>` : ''}
+          </div>
+          <div class="flex items-center justify-end gap-1 pt-1">
+            ${task.status !== 'todo' ? `<button onclick="moveTask('${task.id}', 'todo')" class="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 bg-slate-800 rounded">К выполнению</button>` : ''}
+            ${task.status !== 'in_progress' ? `<button onclick="moveTask('${task.id}', 'in_progress')" class="text-[10px] text-amber-400 hover:text-amber-300 px-1.5 py-0.5 bg-slate-800 rounded">В работу</button>` : ''}
+            ${task.status !== 'done' ? `<button onclick="moveTask('${task.id}', 'done')" class="text-[10px] text-emerald-400 hover:text-emerald-300 px-1.5 py-0.5 bg-slate-800 rounded">Готово</button>` : ''}
+          </div>
+        `;
+
+        if (task.status === 'todo') { colTodo.appendChild(card); cTodo++; }
+        else if (task.status === 'in_progress') { colProg.appendChild(card); cProg++; }
+        else if (task.status === 'done') { colDone.appendChild(card); cDone++; }
       });
 
-      const [selectedDept, setSelectedDept] = useState('all');
-      const [clientId, setClientId] = useState(localStorage.getItem(CLIENT_ID_KEY) || '663742247956-dt56qqvgg0re4nki0ficg8ifj6qr4i1e.apps.googleusercontent.com');
-      const [isConfigOpen, setIsConfigOpen] = useState(false);
-      const [syncStatus, setSyncStatus] = useState('offline');
-      const [lastSync, setLastSync] = useState(null);
-      const [tokenClient, setTokenClient] = useState(null);
-      const [fileId, setFileId] = useState(null);
+      document.getElementById('countTodo').innerText = cTodo;
+      document.getElementById('countProgress').innerText = cProg;
+      document.getElementById('countDone').innerText = cDone;
 
-      const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-      const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
-      const [newTask, setNewTask] = useState({ title: '', deptId: 'prod', priority: 'medium', assignee: '', status: 'todo' });
-      const [newMeeting, setNewMeeting] = useState({ title: '', date: new Date().toISOString().split('T')[0], notes: '' });
-
-      useEffect(() => {
-        localStorage.setItem('mista_planner_data', JSON.stringify(data));
-      }, [data]);
-
-      useEffect(() => {
-        function gapiLoaded() {
-          window.gapi.load('client', async () => {
-            try {
-              await window.gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
-            } catch (e) {
-              console.error('GAPI Init error:', e);
-            }
-          });
-        }
-        if (window.gapi) gapiLoaded();
-      }, []);
-
-      useEffect(() => {
-        if (clientId && window.google) {
-          try {
-            const client = window.google.accounts.oauth2.initTokenClient({
-              client_id: clientId,
-              scope: SCOPES,
-              callback: async (resp) => {
-                if (resp.error) {
-                  setSyncStatus('error');
-                  return;
-                }
-                setSyncStatus('syncing');
-                await initDriveSync();
-              }
-            });
-            setTokenClient(client);
-          } catch (e) {
-            console.error('GIS Init error:', e);
-          }
-        }
-      }, [clientId]);
-
-      const handleConnect = () => {
-        if (!clientId) {
-          setIsConfigOpen(true);
-          return;
-        }
-        if (tokenClient) {
-          tokenClient.requestAccessToken({ prompt: '' });
-        }
-      };
-
-      const initDriveSync = async () => {
-        try {
-          const res = await window.gapi.client.drive.files.list({
-            q: `name = '${FILE_NAME}' and trashed = false`,
-            fields: 'files(id, name)'
-          });
-          const files = res.result.files;
-          if (files && files.length > 0) {
-            const fId = files[0].id;
-            setFileId(fId);
-            const content = await window.gapi.client.drive.files.get({
-              fileId: fId,
-              alt: 'media'
-            });
-            if (content.result && content.result.tasks) {
-              setData(content.result);
-            }
-          } else {
-            const createRes = await window.gapi.client.request({
-              path: '/upload/drive/v3/files',
-              method: 'POST',
-              params: { uploadType: 'multipart' },
-              headers: { 'Content-Type': 'multipart/related; boundary=boundary_mista' },
-              body: `--boundary_mista\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' })}\r\n--boundary_mista\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(data)}\r\n--boundary_mista--`
-            });
-            setFileId(createRes.result.id);
-          }
-          const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          setLastSync(time);
-          setSyncStatus('ready');
-        } catch (e) {
-          console.error('Sync error:', e);
-          setSyncStatus('ready');
-        }
-      };
-
-      const syncToDrive = async (updatedData) => {
-        if (!fileId || syncStatus !== 'ready') return;
-        setSyncStatus('syncing');
-        try {
-          await window.gapi.client.request({
-            path: `/upload/drive/v3/files/${fileId}`,
-            method: 'PATCH',
-            params: { uploadType: 'media' },
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedData)
-          });
-          setLastSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-          setSyncStatus('ready');
-        } catch (e) {
-          console.error('Upload error:', e);
-          setSyncStatus('ready');
-        }
-      };
-
-      const updateTaskStatus = (taskId, newStatus) => {
-        const next = {
-          ...data,
-          tasks: data.tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t)
-        };
-        setData(next);
-        syncToDrive(next);
-      };
-
-      const deleteTask = (taskId) => {
-        const next = {
-          ...data,
-          tasks: data.tasks.filter(t => t.id !== taskId)
-        };
-        setData(next);
-        syncToDrive(next);
-      };
-
-      const handleAddTask = (e) => {
-        e.preventDefault();
-        if (!newTask.title.trim()) return;
-        const task = { ...newTask, id: 't_' + Date.now() };
-        const next = { ...data, tasks: [...data.tasks, task] };
-        setData(next);
-        syncToDrive(next);
-        setNewTask({ title: '', deptId: data.departments[0]?.id || 'prod', priority: 'medium', assignee: '', status: 'todo' });
-        setIsTaskModalOpen(false);
-      };
-
-      const handleAddMeeting = (e) => {
-        e.preventDefault();
-        if (!newMeeting.title.trim()) return;
-        const meeting = { ...newMeeting, id: 'm_' + Date.now() };
-        const next = { ...data, meetings: [meeting, ...data.meetings] };
-        setData(next);
-        syncToDrive(next);
-        setNewMeeting({ title: '', date: new Date().toISOString().split('T')[0], notes: '' });
-        setIsMeetingModalOpen(false);
-      };
-
-      const filteredTasks = selectedDept === 'all' 
-        ? data.tasks 
-        : data.tasks.filter(t => t.deptId === selectedDept);
-
-      return (
-        <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-          <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 py-3 flex items-center justify-between sticky top-0 z-20">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-2.5 h-7 bg-amber-500 rounded-sm"></div>
-                <div>
-                  <h1 className="text-lg font-bold tracking-tight text-white leading-tight">MISTA <span className="text-slate-400 font-normal">| Производственный Планер</span></h1>
-                  <div className="text-xs text-slate-500">Система оперативных совещаний и Канбан-учета</div>
-                </div>
-              </div>
-
-              <nav className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
-                <button 
-                  onClick={() => setActiveTab('kanban')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${activeTab === 'kanban' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                  Канбан-доска
-                </button>
-                <button 
-                  onClick={() => setActiveTab('meetings')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${activeTab === 'meetings' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                  Совещания
-                </button>
-              </nav>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleConnect}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 transition ${
-                  syncStatus === 'ready'
-                    ? 'bg-emerald-950/40 border-emerald-500 text-emerald-400'
-                    : syncStatus === 'syncing'
-                    ? 'bg-amber-950/40 border-amber-500 text-amber-400 animate-pulse'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white border-transparent'
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${syncStatus === 'ready' ? 'bg-emerald-400' : 'bg-white'}`}></span>
-                {syncStatus === 'ready' && `Диск готов (${lastSync || 'актуально'})`}
-                {syncStatus === 'syncing' && 'Синхронизация...'}
-                {syncStatus === 'offline' && 'Подключить Диск'}
-                {syncStatus === 'error' && 'Ошибка Диска'}
-              </button>
-
-              <button
-                onClick={() => setIsConfigOpen(true)}
-                className="p-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-400"
-                title="Настройки ключа"
-              >
-                ⚙
-              </button>
-            </div>
-          </header>
-
-          <div className="px-6 py-3 border-b border-slate-800 bg-slate-900/40 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-400">Отдел:</span>
-              <select 
-                value={selectedDept} 
-                onChange={(e) => setSelectedDept(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none focus:border-blue-500"
-              >
-                <option value="all">Все отделы</option>
-                {data.departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {activeTab === 'kanban' ? (
-              <button 
-                onClick={() => setIsTaskModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
-              >
-                + Добавить задачу
-              </button>
-            ) : (
-              <button 
-                onClick={() => setIsMeetingModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
-              >
-                + Протокол совещания
-              </button>
-            )}
+      const mContainer = document.getElementById('meetingsView');
+      mContainer.innerHTML = '';
+      appData.meetings.forEach(m => {
+        const item = document.createElement('div');
+        item.className = 'bg-slate-900 border border-slate-800 rounded-xl p-5';
+        item.innerHTML = `
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-semibold text-white text-base">${m.title}</h3>
+            <span class="text-xs text-slate-500 font-mono">${m.date}</span>
           </div>
-
-          <main className="p-6 flex-1 overflow-auto">
-            {activeTab === 'kanban' ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-semibold text-slate-300">К выполнению</span>
-                    <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">
-                      {filteredTasks.filter(t => t.status === 'todo').length}
-                    </span>
-                  </div>
-                  <div className="space-y-3 flex-1 overflow-y-auto">
-                    {filteredTasks.filter(t => t.status === 'todo').map(task => (
-                      <TaskCard key={task.id} task={task} departments={data.departments} onStatusChange={updateTaskStatus} onDelete={deleteTask} />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-semibold text-amber-400">В работе</span>
-                    <span className="text-xs bg-amber-950/60 border border-amber-800 text-amber-400 px-2 py-0.5 rounded-full">
-                      {filteredTasks.filter(t => t.status === 'in_progress').length}
-                    </span>
-                  </div>
-                  <div className="space-y-3 flex-1 overflow-y-auto">
-                    {filteredTasks.filter(t => t.status === 'in_progress').map(task => (
-                      <TaskCard key={task.id} task={task} departments={data.departments} onStatusChange={updateTaskStatus} onDelete={deleteTask} />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-semibold text-emerald-400">Готово</span>
-                    <span className="text-xs bg-emerald-950/60 border border-emerald-800 text-emerald-400 px-2 py-0.5 rounded-full">
-                      {filteredTasks.filter(t => t.status === 'done').length}
-                    </span>
-                  </div>
-                  <div className="space-y-3 flex-1 overflow-y-auto">
-                    {filteredTasks.filter(t => t.status === 'done').map(task => (
-                      <TaskCard key={task.id} task={task} departments={data.departments} onStatusChange={updateTaskStatus} onDelete={deleteTask} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="max-w-4xl mx-auto space-y-4">
-                {data.meetings.map(m => (
-                  <div key={m.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-white text-base">{m.title}</h3>
-                      <span className="text-xs text-slate-500 font-mono">{m.date}</span>
-                    </div>
-                    <p className="text-sm text-slate-300 whitespace-pre-wrap">{m.notes}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </main>
-
-          {isTaskModalOpen && (
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-              <form onSubmit={handleAddTask} className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 text-left">
-                <h3 className="text-base font-bold text-white mb-4">Новая задача</h3>
-                <div className="space-y-4 text-xs">
-                  <div>
-                    <label className="block text-slate-400 mb-1">Название / Содержание</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={newTask.title} 
-                      onChange={e => setNewTask({...newTask, title: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-blue-500" 
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-slate-400 mb-1">Отдел</label>
-                      <select 
-                        value={newTask.deptId} 
-                        onChange={e => setNewTask({...newTask, deptId: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none"
-                      >
-                        {data.departments.map(d => (
-                          <option key={d.id} value={d.id}>{d.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-slate-400 mb-1">Приоритет</label>
-                      <select 
-                        value={newTask.priority} 
-                        onChange={e => setNewTask({...newTask, priority: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none"
-                      >
-                        <option value="low">Низкий</option>
-                        <option value="medium">Средний</option>
-                        <option value="high">Высокий</option>
-                        <option value="urgent">Срочно</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 mb-1">Ответственный</label>
-                    <input 
-                      type="text" 
-                      value={newTask.assignee} 
-                      onChange={e => setNewTask({...newTask, assignee: e.target.value})}
-                      placeholder="Имя / Фамилия"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-blue-500" 
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <button type="button" onClick={() => setIsTaskModalOpen(false)} className="px-4 py-2 rounded-lg text-xs text-slate-400 hover:bg-slate-800">Отмена</button>
-                  <button type="submit" className="px-4 py-2 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium">Создать</button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {isMeetingModalOpen && (
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-              <form onSubmit={handleAddMeeting} className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 text-left">
-                <h3 className="text-base font-bold text-white mb-4">Протокол оперативного совещания</h3>
-                <div className="space-y-4 text-xs">
-                  <div>
-                    <label className="block text-slate-400 mb-1">Тема</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={newMeeting.title} 
-                      onChange={e => setNewMeeting({...newMeeting, title: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-blue-500" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 mb-1">Дата</label>
-                    <input 
-                      type="date" 
-                      required 
-                      value={newMeeting.date} 
-                      onChange={e => setNewMeeting({...newMeeting, date: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 mb-1">Решения и поручения</label>
-                    <textarea 
-                      rows="4" 
-                      value={newMeeting.notes} 
-                      onChange={e => setNewMeeting({...newMeeting, notes: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-blue-500"
-                    ></textarea>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <button type="button" onClick={() => setIsMeetingModalOpen(false)} className="px-4 py-2 rounded-lg text-xs text-slate-400 hover:bg-slate-800">Отмена</button>
-                  <button type="submit" className="px-4 py-2 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium">Сохранить</button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {isConfigOpen && (
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-              <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 text-left">
-                <h3 className="text-base font-bold text-white mb-2">Google Drive Client ID</h3>
-                <p className="text-xs text-slate-400 mb-4">Идентификатор клиента для синхронизации с вашим Google Диском:</p>
-                <input 
-                  type="text" 
-                  defaultValue={clientId}
-                  id="client_id_field"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 outline-none mb-4 font-mono"
-                />
-                <div className="flex justify-end gap-3">
-                  <button onClick={() => setIsConfigOpen(false)} className="px-4 py-2 rounded-lg text-xs text-slate-400 hover:bg-slate-800">Закрыть</button>
-                  <button 
-                    onClick={() => {
-                      const val = document.getElementById('client_id_field').value.trim();
-                      setClientId(val);
-                      localStorage.setItem(CLIENT_ID_KEY, val);
-                      setIsConfigOpen(false);
-                    }}
-                    className="px-4 py-2 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
-                  >
-                    Сохранить
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
+          <p class="text-sm text-slate-300 whitespace-pre-wrap">${m.notes}</p>
+        `;
+        mContainer.appendChild(item);
+      });
     }
 
-    function TaskCard({ task, departments, onStatusChange, onDelete }) {
-      const dept = departments.find(d => d.id === task.deptId)?.name || 'Общий';
-      const priorityColors = {
-        urgent: 'border-l-rose-500 bg-rose-950/20',
-        high: 'border-l-amber-500 bg-amber-950/20',
-        medium: 'border-l-blue-500 bg-slate-950/60',
-        low: 'border-l-slate-600 bg-slate-950/40'
-      };
-
-      return (
-        <div className={`p-3.5 rounded-lg border border-slate-800/80 border-l-4 ${priorityColors[task.priority] || priorityColors.medium} flex flex-col gap-2.5`}>
-          <div className="flex items-start justify-between gap-2">
-            <span className="text-xs font-medium text-slate-100 leading-snug">{task.title}</span>
-            <button onClick={() => onDelete(task.id)} className="text-slate-600 hover:text-rose-400 text-xs px-1">✕</button>
-          </div>
-          
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/50">
-            <span className="bg-slate-800/80 px-2 py-0.5 rounded text-slate-300">{dept}</span>
-            {task.assignee && <span className="font-medium text-slate-300">👤 {task.assignee}</span>}
-          </div>
-
-          <div className="flex items-center justify-end gap-1 pt-1">
-            {task.status !== 'todo' && (
-              <button onClick={() => onStatusChange(task.id, 'todo')} className="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 bg-slate-800 rounded">К выполнению</button>
-            )}
-            {task.status !== 'in_progress' && (
-              <button onClick={() => onStatusChange(task.id, 'in_progress')} className="text-[10px] text-amber-400 hover:text-amber-300 px-1.5 py-0.5 bg-slate-800 rounded">В работу</button>
-            )}
-            {task.status !== 'done' && (
-              <button onClick={() => onStatusChange(task.id, 'done')} className="text-[10px] text-emerald-400 hover:text-emerald-300 px-1.5 py-0.5 bg-slate-800 rounded">Готово</button>
-            )}
-          </div>
-        </div>
-      );
+    function moveTask(id, newStatus) {
+      const t = appData.tasks.find(x => x.id === id);
+      if (t) {
+        t.status = newStatus;
+        renderApp();
+        syncDrive();
+      }
     }
 
-    ReactDOM.render(<App />, document.getElementById('root'));
+    function deleteTask(id) {
+      appData.tasks = appData.tasks.filter(x => x.id !== id);
+      renderApp();
+      syncDrive();
+    }
+
+    function openCreateModal() {
+      if (activeTab === 'kanban') toggleTaskModal(true);
+      else toggleMeetingModal(true);
+    }
+
+    function toggleTaskModal(show) {
+      document.getElementById('taskModal').classList.toggle('hidden', !show);
+      if (show) document.getElementById('taskTitle').value = '';
+    }
+
+    function toggleMeetingModal(show) {
+      document.getElementById('meetingModal').classList.toggle('hidden', !show);
+      if (show) document.getElementById('meetingTitle').value = '';
+    }
+
+    function toggleConfigModal(show) {
+      document.getElementById('configModal').classList.toggle('hidden', !show);
+    }
+
+    function saveTask() {
+      const title = document.getElementById('taskTitle').value.trim();
+      if (!title) return;
+      const deptId = document.getElementById('taskDept').value;
+      const priority = document.getElementById('taskPriority').value;
+      const assignee = document.getElementById('taskAssignee').value.trim();
+      appData.tasks.push({ id: 't_' + Date.now(), title, deptId, priority, assignee, status: 'todo' });
+      toggleTaskModal(false);
+      renderApp();
+      syncDrive();
+    }
+
+    function saveMeeting() {
+      const title = document.getElementById('meetingTitle').value.trim();
+      if (!title) return;
+      const date = document.getElementById('meetingDate').value;
+      const notes = document.getElementById('meetingNotes').value.trim();
+      appData.meetings.unshift({ id: 'm_' + Date.now(), title, date, notes });
+      toggleMeetingModal(false);
+      renderApp();
+      syncDrive();
+    }
+
+    function saveClientId() {
+      const val = document.getElementById('clientIdInput').value.trim();
+      localStorage.setItem(CLIENT_ID_KEY, val);
+      toggleConfigModal(false);
+      setupGoogleAuth(val);
+    }
+
+    function setupGoogleAuth(clientId) {
+      if (!window.google || !clientId) return;
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: SCOPES,
+        callback: async (resp) => {
+          if (resp.error) return;
+          setSyncState('syncing');
+          await loadFromDrive();
+        }
+      });
+      gapi.load('client', async () => {
+        await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
+      });
+    }
+
+    function handleConnect() {
+      if (tokenClient) tokenClient.requestAccessToken({ prompt: '' });
+      else toggleConfigModal(true);
+    }
+
+    function setSyncState(state, text) {
+      syncStatus = state;
+      const dot = document.getElementById('syncDot');
+      const txt = document.getElementById('syncText');
+      const btn = document.getElementById('syncBtn');
+
+      if (state === 'ready') {
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500 bg-emerald-950/40 text-emerald-400 flex items-center gap-2';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        txt.innerText = text || 'Диск готов';
+      } else if (state === 'syncing') {
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium border border-amber-500 bg-amber-950/40 text-amber-400 flex items-center gap-2 animate-pulse';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        txt.innerText = 'Синхронизация...';
+      } else {
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium border border-transparent bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2';
+        dot.className = 'w-2 h-2 rounded-full bg-white';
+        txt.innerText = 'Подключить Диск';
+      }
+    }
+
+    async function loadFromDrive() {
+      try {
+        const res = await gapi.client.drive.files.list({ q: `name = '${FILE_NAME}' and trashed = false`, fields: 'files(id, name)' });
+        if (res.result.files && res.result.files.length > 0) {
+          driveFileId = res.result.files[0].id;
+          const content = await gapi.client.drive.files.get({ fileId: driveFileId, alt: 'media' });
+          if (content.result && content.result.tasks) {
+            appData = content.result;
+            renderApp();
+          }
+        } else {
+          const createRes = await gapi.client.request({
+            path: '/upload/drive/v3/files',
+            method: 'POST',
+            params: { uploadType: 'multipart' },
+            headers: { 'Content-Type': 'multipart/related; boundary=mista_b' },
+            body: `--mista_b\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' })}\r\n--mista_b\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(appData)}\r\n--mista_b--`
+          });
+          driveFileId = createRes.result.id;
+        }
+        setSyncState('ready', 'Диск готов');
+      } catch (e) {
+        setSyncState('ready', 'Локальный режим');
+      }
+    }
+
+    async function syncDrive() {
+      if (!driveFileId || syncStatus !== 'ready') return;
+      try {
+        await gapi.client.request({
+          path: `/upload/drive/v3/files/${driveFileId}`,
+          method: 'PATCH',
+          params: { uploadType: 'media' },
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(appData)
+        });
+      } catch (e) {}
+    }
+
+    window.onload = init;
   </script>
 </body>
 </html>
